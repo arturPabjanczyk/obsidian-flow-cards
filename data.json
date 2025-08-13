@@ -1,0 +1,61 @@
+{
+  "cards": {
+    "fc-17550766426631": {
+      "id": "fc-17550766426631",
+      "question": "Jak zadeklarować zmienną w JavaScript?",
+      "answer": "Używamy `let`, `const` lub `var`. Oto przykład:\n```javascript\nconst nazwa = \"Artur\";\nlet wiek = 30;\n```",
+      "decks": [
+        "deck/programowanie"
+      ],
+      "sourcePath": "Bez nazwy 3.md",
+      "sourceLine": 13,
+      "status": "new",
+      "dueDate": null,
+      "interval": 0,
+      "easeFactor": 2.5
+    },
+    "fc-17550767031002": {
+      "id": "fc-17550767031002",
+      "question": "asdfafzmiana pytania",
+      "answer": "sfdgsdfg\n^12345",
+      "decks": [
+        "deck/test"
+      ],
+      "sourcePath": "Bez nazwy 3.md",
+      "sourceLine": 26,
+      "status": "review",
+      "dueDate": "2025-08-16T11:18:58+02:00",
+      "interval": 3,
+      "easeFactor": 2.5
+    },
+    "fc-17550881612290": {
+      "id": "fc-17550881612290",
+      "question": "enthuware.ocpjp.v17.2.3139  \nBiorąc pod uwagę następujący kod:\n```java\nLocalDate d1 = LocalDate.now();  \nd1.plusDays(10);  \nLocalDate d2 = d1.minusWeeks(1);  \nd1 = null;  \nLocalDate d3 = LocalDate.now().plusYears(3).minusMonths(4);  \nd2.plusWeeks(5);  \nd1 = d2;\n```\nIle obiektów jest tworzonych/inicjowanych przez podany kod?\n1. 4\n2. 5\n3. 6\n4. 7\n5. 8\n6. 9\nTrzeba było wybrać 1 opcję",
+      "answer": "`4. 7`",
+      "decks": [
+        "deck/enthuware"
+      ],
+      "sourcePath": "anki/obs-enth/enthuware.ocpjp.v17.2.3139.md",
+      "sourceLine": 26,
+      "status": "new",
+      "dueDate": null,
+      "interval": 0,
+      "easeFactor": 2.5
+    },
+    "fc-17550881727990": {
+      "id": "fc-17550881727990",
+      "question": "Jaka jest stolica Polski?  \nPytanie może być w wielu liniach.  ",
+      "answer": "Odpowiedzią jest Warszawa.\nOdpowiedź też może być wieloliniowa. ^fc-17550766426630",
+      "decks": [
+        "deck/geografia",
+        "deck/polska"
+      ],
+      "sourcePath": "Bez nazwy 3.md",
+      "sourceLine": 6,
+      "status": "new",
+      "dueDate": null,
+      "interval": 0,
+      "easeFactor": 2.5
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Zależności Node.js
+/node_modules
+
+# Pliki systemowe
+.DS_Store
+Thumbs.db
+
+# Pliki konfiguracyjne edytorów
+.vscode/
+.idea/

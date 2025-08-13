@@ -1,0 +1,25 @@
+{
+  "name": "flow-cards",
+  "version": "0.1.0",
+  "description": "A note-integrated spaced repetition plugin (SRS) with a robust algorithm, perfect for active recall and code blocks.",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "obsidian-md",
+    "spaced-repetition",
+    "srs",
+    "flashcards",
+    "active-recall"
+  ],
+  "author": "Artur Pabjańczyk",
+  "license": "MIT",
+  "devDependencies": {
+    "obsidian": "^1.6.3",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "tslib": "^2.6.3"
+  }
+}

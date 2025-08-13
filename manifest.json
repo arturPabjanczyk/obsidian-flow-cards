@@ -1,0 +1,10 @@
+{
+    "id": "flow-cards",
+    "name": "FlowCards",
+    "version": "0.1.0",
+    "minAppVersion": "1.0.0",
+    "description": "A note-integrated spaced repetition plugin (SRS) with a robust algorithm, perfect for active recall and code blocks.",
+    "author": "Artur Pabjańczyk",
+    "authorUrl": "",
+    "isDesktopOnly": false
+}
