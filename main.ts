@@ -15,12 +15,40 @@ class DeckSelectionModal extends FuzzySuggestModal<string> {
     private plugin: FlowCardsPlugin;
     private allDecks: string[];
     private onChoose: (selectedDeck: string) => void;
-    constructor(app: App, plugin: FlowCardsPlugin, onChoose: (selectedDeck: string) => void) {
-        super(app); this.plugin = plugin; this.allDecks = this.plugin.getAllDecks(); this.onChoose = onChoose;
+    private stats: Record<string, { new: number, due: number }>;
+
+    constructor(app: App, plugin: FlowCardsPlugin, stats: Record<string, { new: number, due: number }>, onChoose: (selectedDeck: string) => void) {
+        super(app); 
+        this.plugin = plugin;
+        this.allDecks = this.plugin.getAllDecks();
+        this.onChoose = onChoose;
+        this.stats = stats; // ZMIANA: Przechowujemy statystyki
+        this.setPlaceholder("Wybierz talię do nauki...");
     }
-    getItems(): string[] { return ["* Wszystkie talie *", ...this.allDecks]; }
-    getItemText(item: string): string { return item; }
-    onChooseItem(selectedDeck: string, evt: MouseEvent | KeyboardEvent): void { this.onChoose(selectedDeck); }
+
+    // ZMIANA: Modyfikujemy listę, aby zawierała statystyki
+    getItems(): string[] { 
+        const allDecksFormatted = this.allDecks.map(deck => {
+            const deckStats = this.stats[deck] || { new: 0, due: 0 };
+            return `${deck} (Nowe: ${deckStats.new}, Do powtórki: ${deckStats.due})`;
+        });
+
+        const totalStats = this.stats["* Wszystkie talie *"] || { new: 0, due: 0 };
+        const allTaliesFormatted = `* Wszystkie talie * (Nowe: ${totalStats.new}, Do powtórki: ${totalStats.due})`;
+        
+        return [allTaliesFormatted, ...allDecksFormatted];
+    }
+
+    getItemText(item: string): string { 
+        return item; 
+    }
+
+    // ZMIANA: Musimy wyciągnąć oryginalną nazwę talii z formatowanego tekstu
+    onChooseItem(selectedItem: string, evt: MouseEvent | KeyboardEvent): void { 
+        // Wyciągamy nazwę talii, która jest pierwszym słowem
+        const deckName = selectedItem.split(' ')[0];
+        this.onChoose(deckName); 
+    }
 }
 class BrowserModal extends Modal {
     private plugin: FlowCardsPlugin; private cards: CardState[]; private currentCardIndex: number = 0;
@@ -118,7 +146,9 @@ export default class FlowCardsPlugin extends Plugin {
             id: 'review-flashcards',
             name: 'Ucz się',
             callback: () => {
-                new DeckSelectionModal(this.app, this, (selectedDeck) => {
+                // ZMIANA: Najpierw obliczamy statystyki
+                const stats = this.getDeckStats();
+                new DeckSelectionModal(this.app, this, stats, (selectedDeck) => {
                     const allDecks = this.getAllDecks();
                     const decksToReview = selectedDeck === "* Wszystkie talie *" ? allDecks : [selectedDeck];
                     this.startLearningSession(decksToReview);
@@ -139,6 +169,43 @@ export default class FlowCardsPlugin extends Plugin {
         });
     }
 
+    // NOWA FUNKCJA do obliczania statystyk
+    getDeckStats(): Record<string, { new: number, due: number }> {
+        const now = moment();
+        const allCards = Object.values(this.data.cards);
+        const stats: Record<string, { new: number, due: number }> = {};
+        const totalStats = { new: 0, due: 0 };
+
+        // Inicjalizacja statystyk dla wszystkich istniejących talii
+        this.getAllDecks().forEach(deck => {
+            stats[deck] = { new: 0, due: 0 };
+        });
+
+        for (const card of allCards) {
+            let isDue = false;
+            let isNew = false;
+
+            if (card.status === 'new') {
+                isNew = true;
+                totalStats.new++;
+            } else if (card.dueDate && moment(card.dueDate).isSameOrBefore(now)) {
+                isDue = true;
+                totalStats.due++;
+            }
+
+            if (isNew || isDue) {
+                for (const deck of card.decks) {
+                    if (stats[deck]) {
+                        if (isNew) stats[deck].new++;
+                        if (isDue) stats[deck].due++;
+                    }
+                }
+            }
+        }
+        stats["* Wszystkie talie *"] = totalStats;
+        return stats;
+    }
+    
     async navigateToSource(card: CardState) {
         await this.app.workspace.openLinkText(card.sourcePath, card.sourcePath, false, { eState: { line: card.sourceLine } });
     }
@@ -190,7 +257,6 @@ export default class FlowCardsPlugin extends Plugin {
         card.dueDate = dueDate.format(); this.savePluginData();
     }
 
-    // --- KLUCZOWE ZMIANY TUTAJ ---
     async parseVaultForFlashcards() {
         const files = this.app.vault.getMarkdownFiles();
         const cardsInVault: Record<string, CardState> = {};

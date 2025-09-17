@@ -8,3 +8,5 @@ Thumbs.db
 # Pliki konfiguracyjne edytorów
 .vscode/
 .idea/
+/data.json
+pp
