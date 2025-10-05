@@ -46,8 +46,8 @@ class DeckSelectionModal extends FuzzySuggestModal<string> {
     // ZMIANA: Musimy wyciągnąć oryginalną nazwę talii z formatowanego tekstu
     onChooseItem(selectedItem: string, evt: MouseEvent | KeyboardEvent): void { 
         // Wyciągamy nazwę talii, która jest pierwszym słowem
-        const deckName = selectedItem.split(' ')[0];
-        this.onChoose(deckName); 
+        const deckName = selectedItem.split(' (')[0];
+        this.onChoose(deckName);
     }
 }
 class BrowserModal extends Modal {
