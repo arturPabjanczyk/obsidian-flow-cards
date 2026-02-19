@@ -38,11 +38,10 @@ class DeckSelectionModal extends FuzzySuggestModal<string> {
         this.plugin = plugin;
         this.allDecks = this.plugin.getAllDecks();
         this.onChoose = onChoose;
-        this.stats = stats; // ZMIANA: Przechowujemy statystyki
+        this.stats = stats;
         this.setPlaceholder("Wybierz talię do nauki...");
     }
 
-    // ZMIANA: Modyfikujemy listę, aby zawierała statystyki
     getItems(): string[] { 
         const allDecksFormatted = this.allDecks.map(deck => {
             const deckStats = this.stats[deck] || { new: 0, due: 0 };
@@ -59,9 +58,7 @@ class DeckSelectionModal extends FuzzySuggestModal<string> {
         return item; 
     }
 
-    // ZMIANA: Musimy wyciągnąć oryginalną nazwę talii z formatowanego tekstu
     onChooseItem(selectedItem: string, evt: MouseEvent | KeyboardEvent): void { 
-        // Wyciągamy nazwę talii, która jest pierwszym słowem
         const deckName = selectedItem.split(' (')[0];
         this.onChoose(deckName);
     }
@@ -106,18 +103,15 @@ class LearningModal extends Modal {
     private newInSession: number = 0;
     private dueInSession: number = 0;
     private statsDisplayEl: HTMLSpanElement;
-    private stats: Record<string, { new: number, due: number }>; // Dodano pole stats
+    private stats: Record<string, { new: number, due: number }>;
 
-    // Zaktualizowany konstruktor
     constructor(app: App, plugin: FlowCardsPlugin, reviewQueue: CardState[], stats: Record<string, { new: number, due: number }>, decks: string[]) {
         super(app);
         this.plugin = plugin;
         this.reviewQueue = this.shuffleArray(reviewQueue);
-        this.stats = stats; // Przypisanie stats
+        this.stats = stats;
         this.decks = decks;
         this.containerEl.addClass('flowcards-learning-modal');
-
-        // Inicjalizacja dynamicznych statystyk sesji
         this.newInSession = this.reviewQueue.filter(c => c.status === 'new').length;
         this.dueInSession = this.reviewQueue.length - this.newInSession;
     }
@@ -149,11 +143,9 @@ class LearningModal extends Modal {
         }
         const container = this.contentEl.createDiv({ cls: 'flowcards-container' });
 
-        // --- STATYSTYKI ---
         const statsContainer = container.createDiv({ cls: 'flowcards-stats-container' });
         this.statsDisplayEl = statsContainer.createSpan({ cls: 'flowcards-stats-text' });
         this.updateStatsDisplay();
-        // ------------------
 
         const sourceLinkContainer = container.createDiv({ cls: 'flowcards-source-link-container flowcards-source-link-learning' });
         const sourceLink = sourceLinkContainer.createEl('a', { text: 'Przejdź do źródła', cls: 'flowcards-source-link' });
@@ -169,29 +161,29 @@ class LearningModal extends Modal {
         const cardInfoContainer = container.createDiv({ cls: 'flowcards-card-info', attr: { 'style': 'display: none;' } });
 
         const postAnswerButtons = container.createDiv({ cls: 'flowcards-buttons-container', attr: { 'style': 'display: none;' } });
+        
+        // NOWY KONTENER NA DOLE DLA AKCJI DODATKOWYCH (USUWANIE)
+        const footerActions = container.createDiv({ cls: 'flowcards-footer-actions', attr: { 'style': 'display: none;' } });
+
         showAnswerBtn.onclick = () => {
             MarkdownRenderer.render(this.app, card.answer, answerContainer, card.sourcePath, this.plugin);
-            
             cardInfoContainer.setText(`Status: ${card.status} | Interwał: ${card.interval.toFixed(2)} dni | Łatwość: ${card.easeFactor.toFixed(2)}`);
             cardInfoContainer.style.display = 'block';
-
             answerContainer.style.display = 'block'; 
             preAnswerButtons.style.display = 'none'; 
             postAnswerButtons.style.display = 'flex';
+            footerActions.style.display = 'flex'; // Pokaż stopkę po odsłonięciu odpowiedzi
         };
         const handleAnswer = async (rating: 'again' | 'hard' | 'ok' | 'easy') => {
             const cardStatus = card.status;
             if (rating === 'again') {
                 this.cardsToRepeat.push(card);
             } else {
-                if (cardStatus === 'new') {
-                    this.newInSession--;
-                } else {
-                    this.dueInSession--;
-                }
+                if (cardStatus === 'new') this.newInSession--;
+                else this.dueInSession--;
             }
             
-            this.plugin.processReview(card.id, rating);
+            await this.plugin.processReview(card.id, rating);
             this.currentCardIndex++;
             this.displayCard();
         };
@@ -199,6 +191,17 @@ class LearningModal extends Modal {
         const hardBtn = postAnswerButtons.createEl('button', { text: 'Hard' }); hardBtn.onclick = () => handleAnswer('hard');
         const okBtn = postAnswerButtons.createEl('button', { text: 'Ok' }); okBtn.onclick = () => handleAnswer('ok');
         const easyBtn = postAnswerButtons.createEl('button', { text: 'Easy' }); easyBtn.onclick = () => handleAnswer('easy');
+
+        // LINK USUWANIA W STOPCE
+        const deleteLink = footerActions.createEl('a', { text: 'Usuń kartę', cls: 'flowcards-delete-link' });
+        deleteLink.onclick = async () => {
+            if (confirm("Czy na pewno chcesz trwale usunąć tę fiszkę z notatki i z bazy danych?")) {
+                await this.plugin.deleteCard(card.id);
+                new Notice("Fiszka usunięta.");
+                this.reviewQueue.splice(this.currentCardIndex, 1); // Usuń z bieżącej kolejki
+                this.displayCard(); // Wyświetl następną kartę
+            }
+        };
     }
 }
 
@@ -206,12 +209,12 @@ class LearningModal extends Modal {
 // --- GŁÓWNA KLASA PLUGINU ---
 export default class FlowCardsPlugin extends Plugin {
     data: FlowCardsData;
-    historyData: HistoryData; // NOWE: Dane historii
+    historyData: HistoryData;
 
     async onload() {
         console.log('Ładowanie pluginu FlowCards...');
         await this.loadPluginData();
-        await this.loadHistoryData(); // NOWE: Ładowanie historii
+        await this.loadHistoryData();
         this.addCommand({
             id: 'update-flashcards-index',
             name: 'Aktualizuj indeks fiszek',
@@ -221,7 +224,6 @@ export default class FlowCardsPlugin extends Plugin {
             id: 'review-flashcards',
             name: 'Ucz się',
             callback: () => {
-                // ZMIANA: Najpierw obliczamy statystyki
                 const stats = this.getDeckStats();
                 new DeckSelectionModal(this.app, this, stats, (selectedDeck) => {
                     const allDecks = this.getAllDecks();
@@ -244,22 +246,17 @@ export default class FlowCardsPlugin extends Plugin {
         });
     }
 
-    // NOWA FUNKCJA do obliczania statystyk
     getDeckStats(): Record<string, { new: number, due: number }> {
         const now = moment();
         const allCards = Object.values(this.data.cards);
         const stats: Record<string, { new: number, due: number }> = {};
         const totalStats = { new: 0, due: 0 };
-
-        // Inicjalizacja statystyk dla wszystkich istniejących talii
         this.getAllDecks().forEach(deck => {
             stats[deck] = { new: 0, due: 0 };
         });
-
         for (const card of allCards) {
             let isDue = false;
             let isNew = false;
-
             if (card.status === 'new') {
                 isNew = true;
                 totalStats.new++;
@@ -267,7 +264,6 @@ export default class FlowCardsPlugin extends Plugin {
                 isDue = true;
                 totalStats.due++;
             }
-
             if (isNew || isDue) {
                 for (const deck of card.decks) {
                     if (stats[deck]) {
@@ -288,7 +284,6 @@ export default class FlowCardsPlugin extends Plugin {
     async loadPluginData() { this.data = Object.assign({}, DEFAULT_DATA, await this.loadData()); }
     async savePluginData() { await this.saveData(this.data); }
 
-    // --- NOWE METODY OBSŁUGI HISTORII ---
     async loadHistoryData() {
         const adapter = this.app.vault.adapter;
         const historyPath = this.manifest.dir + "/history.json";
@@ -310,7 +305,6 @@ export default class FlowCardsPlugin extends Plugin {
         const historyPath = this.manifest.dir + "/history.json";
         await adapter.write(historyPath, JSON.stringify(this.historyData, null, 2));
     }
-    // ------------------------------------
 
     getAllDecks(): string[] {
         const allCards = Object.values(this.data.cards);
@@ -321,9 +315,9 @@ export default class FlowCardsPlugin extends Plugin {
 
     startLearningSession(decks: string[]) {
         const reviewQueue = this.getCardsForReview(decks);
-        const stats = this.getDeckStats(); // Pobieramy statystyki
+        const stats = this.getDeckStats();
         if (reviewQueue.length > 0) { 
-            new LearningModal(this.app, this, reviewQueue, stats, decks).open(); // Przekazujemy stats i decks
+            new LearningModal(this.app, this, reviewQueue, stats, decks).open();
         }
         else { new Notice('Brak fiszek do powtórki w wybranych taliach!'); }
     }
@@ -340,20 +334,19 @@ export default class FlowCardsPlugin extends Plugin {
         });
     }
 
-    processReview(cardId: string, rating: 'again' | 'hard' | 'ok' | 'easy') {
+    async processReview(cardId: string, rating: 'again' | 'hard' | 'ok' | 'easy') {
         const card = this.data.cards[cardId];
         if (!card) return; 
         
-        // Zapisz stan przed zmianą
         const oldInterval = card.interval;
         const oldEaseFactor = card.easeFactor;
         const statusBefore = card.status;
 
-        let newInterval; const oldStatus = card.status;
+        let newInterval;
         if (rating === 'again') {
             card.interval = 0; card.status = 'learning'; newInterval = 1 / (24 * 60);
         } else {
-            if (oldStatus === 'new' || oldStatus === 'learning') {
+            if (statusBefore === 'new' || statusBefore === 'learning') {
                 newInterval = rating === 'hard' ? 1 : rating === 'ok' ? 3 : 5;
             } else {
                 newInterval = rating === 'hard' ? card.interval * 1.2 : rating === 'ok' ? card.interval * card.easeFactor : card.interval * card.easeFactor * 1.3;
@@ -365,9 +358,8 @@ export default class FlowCardsPlugin extends Plugin {
         const dueDate = moment().add(newInterval, 'days');
         card.dueDate = dueDate.format(); 
         
-        this.savePluginData();
+        await this.savePluginData();
 
-        // --- ZAPIS DO HISTORII ---
         const logEntry: ReviewLogEntry = {
             cardId: card.id,
             timestamp: Date.now(),
@@ -379,8 +371,52 @@ export default class FlowCardsPlugin extends Plugin {
             statusBefore: statusBefore
         };
         this.historyData.reviews.push(logEntry);
-        this.saveHistoryData();
-        // -------------------------
+        await this.saveHistoryData();
+    }
+
+    async deleteCard(cardId: string) {
+        const card = this.data.cards[cardId];
+        if (!card) return;
+
+        const file = this.app.vault.getAbstractFileByPath(card.sourcePath);
+        if (file) {
+            const content = await this.app.vault.read(file as any);
+            const lines = content.split('\n');
+
+            let startLine = card.sourceLine;
+            let endLine = card.sourceLine;
+
+            // Find question start
+            for (let i = card.sourceLine - 1; i >= 0; i--) {
+                if (lines[i].trim() === '') {
+                    startLine = i + 1;
+                    break;
+                }
+                if (i === 0) {
+                    startLine = 0;
+                }
+            }
+
+            // Find answer end
+            for (let i = card.sourceLine + 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') {
+                    endLine = i - 1;
+                    break;
+                }
+                if (i === lines.length - 1) {
+                    endLine = i;
+                }
+            }
+
+            lines.splice(startLine, endLine - startLine + 1);
+            await this.app.vault.modify(file as any, lines.join('\n'));
+        }
+
+        delete this.data.cards[cardId];
+        this.historyData.reviews = this.historyData.reviews.filter(r => r.cardId !== cardId);
+
+        await this.savePluginData();
+        await this.saveHistoryData();
     }
 
     async parseVaultForFlashcards() {
@@ -416,7 +452,7 @@ export default class FlowCardsPlugin extends Plugin {
                 cardsInVault[cardId] = this.data.cards[cardId];
             }
             if (fileModified) {
-                await this.app.vault.modify(file, fileContentLines.join('\n'));
+                await this.app.vault.modify(file as any, fileContentLines.join('\n'));
             }
         }
         for (const id in this.data.cards) { if (!cardsInVault[id]) { delete this.data.cards[id]; } }
