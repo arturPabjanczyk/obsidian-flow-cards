@@ -1,5 +1,4 @@
-import { App, Plugin, Notice, TFile, Modal, MarkdownRenderer, FuzzySuggestModal } from 'obsidian';
-import { moment } from 'obsidian';
+import {App, FuzzySuggestModal, MarkdownRenderer, Modal, moment, Notice, Plugin} from 'obsidian';
 
 // --- INTERFEJSY I TYPY ---
 type CardStatus = 'new' | 'learning' | 'review';

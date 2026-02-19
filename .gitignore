@@ -8,5 +8,13 @@ Thumbs.db
 # Pliki konfiguracyjne edytorów
 .vscode/
 .idea/
-/data.json
-pp
+*.iml
+
+# Skompilowane pliki JS (z wyjątkiem main.js)
+*.js
+main.js
+package-lock.json
+
+
+# pliki z fiszkami
+data.json
