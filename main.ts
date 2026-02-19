@@ -83,9 +83,35 @@ class BrowserModal extends Modal {
         nextBtn.disabled = this.currentCardIndex === this.cards.length - 1;
         prevBtn.onclick = () => { this.currentCardIndex--; this.displayCard(); };
         nextBtn.onclick = () => { this.currentCardIndex++; this.displayCard(); };
+        
         const sourceLinkContainer = container.createDiv({ cls: 'flowcards-source-link-container' })
         const sourceLink = sourceLinkContainer.createEl('a', { text: `Źródło: ${card.sourcePath}`, cls: 'flowcards-source-link' });
         sourceLink.onclick = () => { this.close(); this.plugin.navigateToSource(card); };
+        
+        // DODANO: Link usuwania w BrowserModal
+        sourceLinkContainer.createSpan({ text: " | " });
+        const deleteLink = sourceLinkContainer.createEl('a', { text: 'Usuń kartę', cls: 'flowcards-delete-link' });
+        deleteLink.onclick = async () => {
+            if (confirm("Czy na pewno chcesz trwale usunąć tę fiszkę z notatki i z bazy danych?")) {
+                await this.plugin.deleteCard(card.id);
+                new Notice("Fiszka usunięta.");
+                
+                // Usuń z lokalnej listy
+                this.cards.splice(this.currentCardIndex, 1);
+                
+                // Korekta indeksu jeśli usunięto ostatnią
+                if (this.currentCardIndex >= this.cards.length) {
+                    this.currentCardIndex = Math.max(0, this.cards.length - 1);
+                }
+                
+                if (this.cards.length > 0) {
+                    this.displayCard();
+                } else {
+                    this.close();
+                }
+            }
+        };
+
         container.createEl('h3', { text: 'Pytanie' });
         const questionEl = container.createDiv({ cls: 'flowcards-browser-content' });
         MarkdownRenderer.render(this.app, card.question, questionEl, card.sourcePath, this.plugin);
@@ -162,7 +188,6 @@ class LearningModal extends Modal {
 
         const postAnswerButtons = container.createDiv({ cls: 'flowcards-buttons-container', attr: { 'style': 'display: none;' } });
         
-        // NOWY KONTENER NA DOLE DLA AKCJI DODATKOWYCH (USUWANIE)
         const footerActions = container.createDiv({ cls: 'flowcards-footer-actions', attr: { 'style': 'display: none;' } });
 
         showAnswerBtn.onclick = () => {
@@ -192,7 +217,6 @@ class LearningModal extends Modal {
         const okBtn = postAnswerButtons.createEl('button', { text: 'Ok' }); okBtn.onclick = () => handleAnswer('ok');
         const easyBtn = postAnswerButtons.createEl('button', { text: 'Easy' }); easyBtn.onclick = () => handleAnswer('easy');
 
-        // LINK USUWANIA W STOPCE
         const deleteLink = footerActions.createEl('a', { text: 'Usuń kartę', cls: 'flowcards-delete-link' });
         deleteLink.onclick = async () => {
             if (confirm("Czy na pewno chcesz trwale usunąć tę fiszkę z notatki i z bazy danych?")) {
