@@ -9,6 +9,23 @@ interface CardState {
 interface FlowCardsData { cards: Record<string, CardState>; }
 const DEFAULT_DATA: FlowCardsData = { cards: {}, };
 
+// --- NOWE INTERFEJSY DLA HISTORII ---
+interface ReviewLogEntry {
+    cardId: string;
+    timestamp: number;
+    rating: 'again' | 'hard' | 'ok' | 'easy';
+    oldInterval: number;
+    newInterval: number;
+    oldEaseFactor: number;
+    newEaseFactor: number;
+    statusBefore: CardStatus;
+}
+interface HistoryData {
+    reviews: ReviewLogEntry[];
+}
+const DEFAULT_HISTORY_DATA: HistoryData = { reviews: [] };
+
+
 // --- WSZYSTKIE KLASY MODALI (bez zmian, skrócone dla czytelności) ---
 class DeckSelectionModal extends FuzzySuggestModal<string> {
     private plugin: FlowCardsPlugin;
@@ -89,11 +106,14 @@ class LearningModal extends Modal {
     private newInSession: number = 0;
     private dueInSession: number = 0;
     private statsDisplayEl: HTMLSpanElement;
+    private stats: Record<string, { new: number, due: number }>; // Dodano pole stats
 
-    constructor(app: App, plugin: FlowCardsPlugin, reviewQueue: CardState[], decks: string[]) {
+    // Zaktualizowany konstruktor
+    constructor(app: App, plugin: FlowCardsPlugin, reviewQueue: CardState[], stats: Record<string, { new: number, due: number }>, decks: string[]) {
         super(app);
         this.plugin = plugin;
         this.reviewQueue = this.shuffleArray(reviewQueue);
+        this.stats = stats; // Przypisanie stats
         this.decks = decks;
         this.containerEl.addClass('flowcards-learning-modal');
 
@@ -186,10 +206,12 @@ class LearningModal extends Modal {
 // --- GŁÓWNA KLASA PLUGINU ---
 export default class FlowCardsPlugin extends Plugin {
     data: FlowCardsData;
+    historyData: HistoryData; // NOWE: Dane historii
 
     async onload() {
         console.log('Ładowanie pluginu FlowCards...');
         await this.loadPluginData();
+        await this.loadHistoryData(); // NOWE: Ładowanie historii
         this.addCommand({
             id: 'update-flashcards-index',
             name: 'Aktualizuj indeks fiszek',
@@ -266,6 +288,30 @@ export default class FlowCardsPlugin extends Plugin {
     async loadPluginData() { this.data = Object.assign({}, DEFAULT_DATA, await this.loadData()); }
     async savePluginData() { await this.saveData(this.data); }
 
+    // --- NOWE METODY OBSŁUGI HISTORII ---
+    async loadHistoryData() {
+        const adapter = this.app.vault.adapter;
+        const historyPath = this.manifest.dir + "/history.json";
+        if (await adapter.exists(historyPath)) {
+            const historyContent = await adapter.read(historyPath);
+            try {
+                this.historyData = JSON.parse(historyContent);
+            } catch (e) {
+                console.error("Błąd parsowania history.json", e);
+                this.historyData = Object.assign({}, DEFAULT_HISTORY_DATA);
+            }
+        } else {
+            this.historyData = Object.assign({}, DEFAULT_HISTORY_DATA);
+        }
+    }
+
+    async saveHistoryData() {
+        const adapter = this.app.vault.adapter;
+        const historyPath = this.manifest.dir + "/history.json";
+        await adapter.write(historyPath, JSON.stringify(this.historyData, null, 2));
+    }
+    // ------------------------------------
+
     getAllDecks(): string[] {
         const allCards = Object.values(this.data.cards);
         const deckSet = new Set<string>();
@@ -275,8 +321,9 @@ export default class FlowCardsPlugin extends Plugin {
 
     startLearningSession(decks: string[]) {
         const reviewQueue = this.getCardsForReview(decks);
+        const stats = this.getDeckStats(); // Pobieramy statystyki
         if (reviewQueue.length > 0) { 
-            new LearningModal(this.app, this, reviewQueue, decks).open();
+            new LearningModal(this.app, this, reviewQueue, stats, decks).open(); // Przekazujemy stats i decks
         }
         else { new Notice('Brak fiszek do powtórki w wybranych taliach!'); }
     }
@@ -295,7 +342,14 @@ export default class FlowCardsPlugin extends Plugin {
 
     processReview(cardId: string, rating: 'again' | 'hard' | 'ok' | 'easy') {
         const card = this.data.cards[cardId];
-        if (!card) return; let newInterval; const oldStatus = card.status;
+        if (!card) return; 
+        
+        // Zapisz stan przed zmianą
+        const oldInterval = card.interval;
+        const oldEaseFactor = card.easeFactor;
+        const statusBefore = card.status;
+
+        let newInterval; const oldStatus = card.status;
         if (rating === 'again') {
             card.interval = 0; card.status = 'learning'; newInterval = 1 / (24 * 60);
         } else {
@@ -309,7 +363,24 @@ export default class FlowCardsPlugin extends Plugin {
             card.interval = newInterval; card.status = 'review';
         }
         const dueDate = moment().add(newInterval, 'days');
-        card.dueDate = dueDate.format(); this.savePluginData();
+        card.dueDate = dueDate.format(); 
+        
+        this.savePluginData();
+
+        // --- ZAPIS DO HISTORII ---
+        const logEntry: ReviewLogEntry = {
+            cardId: card.id,
+            timestamp: Date.now(),
+            rating: rating,
+            oldInterval: oldInterval,
+            newInterval: newInterval,
+            oldEaseFactor: oldEaseFactor,
+            newEaseFactor: card.easeFactor,
+            statusBefore: statusBefore
+        };
+        this.historyData.reviews.push(logEntry);
+        this.saveHistoryData();
+        // -------------------------
     }
 
     async parseVaultForFlashcards() {
