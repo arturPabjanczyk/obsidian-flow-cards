@@ -83,7 +83,10 @@ class BrowserModal extends Modal {
 class LearningModal extends Modal {
     private plugin: FlowCardsPlugin; private reviewQueue: CardState[]; private currentCardIndex: number = 0; private cardsToRepeat: CardState[] = [];
     constructor(app: App, plugin: FlowCardsPlugin, reviewQueue: CardState[]) {
-        super(app); this.plugin = plugin; this.reviewQueue = this.shuffleArray(reviewQueue);
+        super(app);
+        this.plugin = plugin;
+        this.reviewQueue = this.shuffleArray(reviewQueue);
+        this.containerEl.addClass('flowcards-learning-modal');
     }
     onOpen() { this.displayCard(); }
     onClose() { this.contentEl.empty(); }
