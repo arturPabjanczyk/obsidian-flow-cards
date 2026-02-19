@@ -222,6 +222,11 @@ class LearningModal extends Modal {
             if (confirm("Czy na pewno chcesz trwale usunąć tę fiszkę z notatki i z bazy danych?")) {
                 await this.plugin.deleteCard(card.id);
                 new Notice("Fiszka usunięta.");
+                
+                // POPRAWKA: Aktualizacja liczników po usunięciu
+                if (card.status === 'new') this.newInSession--;
+                else this.dueInSession--;
+                
                 this.reviewQueue.splice(this.currentCardIndex, 1); // Usuń z bieżącej kolejki
                 this.displayCard(); // Wyświetl następną kartę
             }
@@ -509,3 +514,4 @@ export default class FlowCardsPlugin extends Plugin {
         return foundCards;
     }
 }
+// Force update
