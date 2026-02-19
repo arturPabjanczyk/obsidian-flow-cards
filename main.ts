@@ -81,12 +81,25 @@ class BrowserModal extends Modal {
     }
 }
 class LearningModal extends Modal {
-    private plugin: FlowCardsPlugin; private reviewQueue: CardState[]; private currentCardIndex: number = 0; private cardsToRepeat: CardState[] = [];
-    constructor(app: App, plugin: FlowCardsPlugin, reviewQueue: CardState[]) {
+    private plugin: FlowCardsPlugin;
+    private reviewQueue: CardState[];
+    private currentCardIndex: number = 0;
+    private cardsToRepeat: CardState[] = [];
+    private decks: string[];
+    private newInSession: number = 0;
+    private dueInSession: number = 0;
+    private statsDisplayEl: HTMLSpanElement;
+
+    constructor(app: App, plugin: FlowCardsPlugin, reviewQueue: CardState[], decks: string[]) {
         super(app);
         this.plugin = plugin;
         this.reviewQueue = this.shuffleArray(reviewQueue);
+        this.decks = decks;
         this.containerEl.addClass('flowcards-learning-modal');
+
+        // Inicjalizacja dynamicznych statystyk sesji
+        this.newInSession = this.reviewQueue.filter(c => c.status === 'new').length;
+        this.dueInSession = this.reviewQueue.length - this.newInSession;
     }
     onOpen() { this.displayCard(); }
     onClose() { this.contentEl.empty(); }
@@ -94,16 +107,34 @@ class LearningModal extends Modal {
         for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; }
         return array;
     }
+
+    private updateStatsDisplay() {
+        const deckNameDisplay = this.decks.length === 1 ? this.decks[0] : "Wszystkie talie";
+        this.statsDisplayEl.setText(
+            `${deckNameDisplay} | Nowe: ${this.newInSession} | Do powtórki: ${this.dueInSession} | Karta ${this.currentCardIndex + 1} z ${this.reviewQueue.length} | Powtórki w sesji: ${this.cardsToRepeat.length}`
+        );
+    }
+
     displayCard() {
         this.contentEl.empty();
         const card = this.reviewQueue[this.currentCardIndex];
         if (!card) {
             if (this.cardsToRepeat.length > 0) {
-                this.reviewQueue = this.shuffleArray(this.cardsToRepeat); this.cardsToRepeat = []; this.currentCardIndex = 0; this.displayCard();
+                this.reviewQueue = this.shuffleArray(this.cardsToRepeat);
+                this.cardsToRepeat = [];
+                this.currentCardIndex = 0;
+                this.displayCard();
             } else { new Notice('Sesja nauki zakończona!'); this.close(); }
             return;
         }
         const container = this.contentEl.createDiv({ cls: 'flowcards-container' });
+
+        // --- STATYSTYKI ---
+        const statsContainer = container.createDiv({ cls: 'flowcards-stats-container' });
+        this.statsDisplayEl = statsContainer.createSpan({ cls: 'flowcards-stats-text' });
+        this.updateStatsDisplay();
+        // ------------------
+
         const sourceLinkContainer = container.createDiv({ cls: 'flowcards-source-link-container flowcards-source-link-learning' });
         const sourceLink = sourceLinkContainer.createEl('a', { text: 'Przejdź do źródła', cls: 'flowcards-source-link' });
         sourceLink.onclick = () => { this.close(); this.plugin.navigateToSource(card); };
@@ -114,15 +145,35 @@ class LearningModal extends Modal {
         const showAnswerBtn = preAnswerButtons.createEl('button', { text: 'Pokaż odpowiedź' });
         const skipBtn = preAnswerButtons.createEl('button', { text: 'Pomiń', cls: 'mod-warning' });
         skipBtn.onclick = () => { this.currentCardIndex++; this.displayCard(); };
+        
+        const cardInfoContainer = container.createDiv({ cls: 'flowcards-card-info', attr: { 'style': 'display: none;' } });
+
         const postAnswerButtons = container.createDiv({ cls: 'flowcards-buttons-container', attr: { 'style': 'display: none;' } });
         showAnswerBtn.onclick = () => {
             MarkdownRenderer.render(this.app, card.answer, answerContainer, card.sourcePath, this.plugin);
-            answerContainer.style.display = 'block'; preAnswerButtons.style.display = 'none'; postAnswerButtons.style.display = 'flex';
+            
+            cardInfoContainer.setText(`Status: ${card.status} | Interwał: ${card.interval.toFixed(2)} dni | Łatwość: ${card.easeFactor.toFixed(2)}`);
+            cardInfoContainer.style.display = 'block';
+
+            answerContainer.style.display = 'block'; 
+            preAnswerButtons.style.display = 'none'; 
+            postAnswerButtons.style.display = 'flex';
         };
         const handleAnswer = async (rating: 'again' | 'hard' | 'ok' | 'easy') => {
-            if (rating === 'again') { this.cardsToRepeat.push(card); }
+            const cardStatus = card.status;
+            if (rating === 'again') {
+                this.cardsToRepeat.push(card);
+            } else {
+                if (cardStatus === 'new') {
+                    this.newInSession--;
+                } else {
+                    this.dueInSession--;
+                }
+            }
+            
             this.plugin.processReview(card.id, rating);
-            this.currentCardIndex++; this.displayCard();
+            this.currentCardIndex++;
+            this.displayCard();
         };
         const againBtn = postAnswerButtons.createEl('button', { text: 'Again' }); againBtn.onclick = () => handleAnswer('again');
         const hardBtn = postAnswerButtons.createEl('button', { text: 'Hard' }); hardBtn.onclick = () => handleAnswer('hard');
@@ -224,7 +275,9 @@ export default class FlowCardsPlugin extends Plugin {
 
     startLearningSession(decks: string[]) {
         const reviewQueue = this.getCardsForReview(decks);
-        if (reviewQueue.length > 0) { new LearningModal(this.app, this, reviewQueue).open(); }
+        if (reviewQueue.length > 0) { 
+            new LearningModal(this.app, this, reviewQueue, decks).open();
+        }
         else { new Notice('Brak fiszek do powtórki w wybranych taliach!'); }
     }
 

@@ -38,6 +38,31 @@
     justify-content: center;
 }
 
+/* Style dla statystyk w oknie nauki */
+.flowcards-stats-container {
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: var(--background-secondary-alt);
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.flowcards-stats-text {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* Style dla informacji o karcie (interwał, łatwość) */
+.flowcards-card-info {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .flowcards-question, .flowcards-answer {
     font-size: 1.2em;
     line-height: 1.6;
