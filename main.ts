@@ -462,7 +462,7 @@ export default class FlowCardsPlugin extends Plugin {
                 if (!cardId) {
                     cardId = `fc-${Date.now()}${i}`;
                     const lineToModify = fileContentLines[rawCard.separatorLine];
-                    fileContentLines[rawCard.separatorLine] = `${lineToModify.trimEnd()} @@${cardId}`;
+                    fileContentLines[rawCard.separatorLine] = `${lineToModify.trimEnd()} @@${cardId}  `;
                     fileModified = true;
                 }
                 if (this.data.cards[cardId]) {
@@ -514,4 +514,3 @@ export default class FlowCardsPlugin extends Plugin {
         return foundCards;
     }
 }
-// Force update
