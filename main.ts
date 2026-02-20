@@ -88,9 +88,16 @@ class BrowserModal extends Modal {
         const sourceLink = sourceLinkContainer.createEl('a', { text: `Źródło: ${card.sourcePath}`, cls: 'flowcards-source-link' });
         sourceLink.onclick = () => { this.close(); this.plugin.navigateToSource(card); };
         
-        // DODANO: Link usuwania w BrowserModal
-        sourceLinkContainer.createSpan({ text: " | " });
-        const deleteLink = sourceLinkContainer.createEl('a', { text: 'Usuń kartę', cls: 'flowcards-delete-link' });
+        container.createEl('h3', { text: 'Pytanie' });
+        const questionEl = container.createDiv({ cls: 'flowcards-browser-content' });
+        MarkdownRenderer.render(this.app, card.question, questionEl, card.sourcePath, this.plugin);
+        container.createEl('h3', { text: 'Odpowiedź' });
+        const answerEl = container.createDiv({ cls: 'flowcards-browser-content' });
+        MarkdownRenderer.render(this.app, card.answer, answerEl, card.sourcePath, this.plugin);
+
+        // LINK USUWANIA W STOPCE (BrowserModal)
+        const footerActions = container.createDiv({ cls: 'flowcards-footer-actions', attr: { style: 'margin-top: 20px;' } });
+        const deleteLink = footerActions.createEl('a', { text: 'Usuń kartę', cls: 'flowcards-delete-link' });
         deleteLink.onclick = async () => {
             if (confirm("Czy na pewno chcesz trwale usunąć tę fiszkę z notatki i z bazy danych?")) {
                 await this.plugin.deleteCard(card.id);
@@ -111,13 +118,6 @@ class BrowserModal extends Modal {
                 }
             }
         };
-
-        container.createEl('h3', { text: 'Pytanie' });
-        const questionEl = container.createDiv({ cls: 'flowcards-browser-content' });
-        MarkdownRenderer.render(this.app, card.question, questionEl, card.sourcePath, this.plugin);
-        container.createEl('h3', { text: 'Odpowiedź' });
-        const answerEl = container.createDiv({ cls: 'flowcards-browser-content' });
-        MarkdownRenderer.render(this.app, card.answer, answerEl, card.sourcePath, this.plugin);
     }
 }
 class LearningModal extends Modal {
@@ -271,6 +271,16 @@ export default class FlowCardsPlugin extends Plugin {
                 const cardsInNote = allCards.filter(card => card.sourcePath === activeFile.path);
                 if (cardsInNote.length > 0) { new BrowserModal(this.app, this, cardsInNote).open(); }
                 else { new Notice("W tej notatce nie znaleziono żadnych fiszek FlowCards."); }
+            },
+        });
+        this.addCommand({
+            id: 'export-flashcards',
+            name: 'Eksportuj fiszki',
+            callback: () => {
+                const stats = this.getDeckStats();
+                new DeckSelectionModal(this.app, this, stats, (selectedDeck) => {
+                    this.exportDeck(selectedDeck);
+                }).open();
             },
         });
     }
@@ -513,4 +523,38 @@ export default class FlowCardsPlugin extends Plugin {
         }
         return foundCards;
     }
+
+    async exportDeck(deckName: string) {
+        const allCards = Object.values(this.data.cards);
+        let cardsToExport: CardState[] = [];
+
+        if (deckName === "* Wszystkie talie *") {
+            cardsToExport = allCards;
+        } else {
+            cardsToExport = allCards.filter(card => card.decks.includes(deckName));
+        }
+
+        if (cardsToExport.length === 0) {
+            new Notice("Brak fiszek do eksportu.");
+            return;
+        }
+
+        let exportContent = `# Eksport talii: ${deckName}\n\n`;
+
+        for (const card of cardsToExport) {
+            exportContent += `## Pytanie\n${card.question}\n\n### Odpowiedź\n${card.answer}\n\n---\n\n`;
+        }
+
+        const fileName = `${deckName.replace(/[\/\\:]/g, '-')}.md`;
+        const filePath = `${fileName}`;
+
+        try {
+            await this.app.vault.create(filePath, exportContent);
+            new Notice(`Wyeksportowano ${cardsToExport.length} fiszek do pliku: ${fileName}`);
+        } catch (e) {
+            new Notice(`Błąd eksportu: Plik ${fileName} już istnieje lub wystąpił inny błąd.`);
+            console.error(e);
+        }
+    }
 }
+// Force update 4
